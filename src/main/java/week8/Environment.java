@@ -3,32 +3,42 @@ package week8;
 import java.util.*;
 
 public class Environment<T> {
+    private final Deque<Map<String, T>> scopes = new ArrayDeque<>();
 
     /**
      * Esialgu peaks olemas olema globaalne skoop, kuhu saab muutujaid deklareerida enne ühtegi skoopi (plokki) sisenemist.
      */
     public Environment() {
+        scopes.push(new LinkedHashMap<>());
     }
 
     /**
      * Deklareerib praeguses skoobis uue muutuja.
      */
     public void declare(String variable) {
-        throw new UnsupportedOperationException();
+        assert scopes.peek() != null;
+        scopes.peek().put(variable, null);
     }
 
     /**
      * Omistab muutujale uue väärtuse kõige sisemises skoobis, kus see muutuja deklareeritud on.
      */
     public void assign(String variable, T value) {
-        throw new UnsupportedOperationException();
+        for (Map<String, T> scope : scopes) {
+            if (scope.containsKey(variable)) {
+                scope.put(variable, value);
+                return;
+            }
+        }
+        throw new RuntimeException("Undeclared variable: " + variable);
     }
 
     /**
      * Deklareerib praeguses skoobis uue muutuja ja omistab sellele väärtuse.
      */
     public void declareAssign(String variable, T value) {
-        throw new UnsupportedOperationException();
+        assert scopes.peek() != null;
+        scopes.peek().put(variable, value);
     }
 
     /**
@@ -36,7 +46,12 @@ public class Environment<T> {
      * Deklareerimata või väärtustamata muutujate korral peaks tagastama {@code null}.
      */
     public T get(String variable) {
-        throw new UnsupportedOperationException();
+        for (Map<String, T> scope : scopes) {
+            if (scope.containsKey(variable)) {
+                return scope.get(variable);
+            }
+        }
+        return null;
     }
 
     /**
@@ -44,7 +59,7 @@ public class Environment<T> {
      * Uues skoobis võib üle deklareerida välimiste välimise skoobi muutujaid.
      */
     public void enterBlock() {
-        throw new UnsupportedOperationException();
+        scopes.push(new LinkedHashMap<>());
     }
 
     /**
@@ -52,6 +67,9 @@ public class Environment<T> {
      * Unustama peaks kõik sisemises skoobis deklareeritud muutujad.
      */
     public void exitBlock() {
-        throw new UnsupportedOperationException();
+        if (scopes.size() <= 1) {
+            throw new RuntimeException("Cannot exit global scope");
+        }
+        scopes.pop();
     }
 }
