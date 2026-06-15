@@ -40,10 +40,70 @@ public class VexCompiler {
      * @param axis kumba koordinaati parasjagu kompileeritakse
      */
     private void compileVector(VexVectorNode vectorNode, VexProj.Axis axis) {
-        throw new UnsupportedOperationException();
+        if (vectorNode instanceof VexVec(VexScalarNode x, VexScalarNode y)) {
+            if (axis == X) compileScalar(x);
+            else compileScalar(y);
+        }
+        if (vectorNode instanceof VexVVar(String name)) {
+            int addr = variables.get(name);
+            pw.visit(LOADA, axis == X ? addr : addr + 1);
+        }
+        if (vectorNode instanceof VexScale(VexScalarNode scalar, VexVectorNode vector)) {
+            compileScalar(scalar);
+            compileVector(vector, axis);
+            pw.visit(MUL);
+        }
+        if (vectorNode instanceof VexPlus(VexVectorNode left, VexVectorNode right)) {
+            compileVector(left, axis);
+            compileVector(right, axis);
+            pw.visit(ADD);
+        }
     }
 
-    static void main() throws IOException {
+    private void compileScalar(VexScalarNode x) {
+        switch (x) {
+            case VexBinOp(VexBinOp.Op op, VexScalarNode left, VexScalarNode right) -> {
+                compileScalar(left);
+                compileScalar(right);
+                pw.visit(
+                        switch (op.getSymbol()) {
+                            case "*" -> MUL;
+                            case "/" -> DIV;
+                            case "+" -> ADD;
+                            case "-" -> SUB;
+                            default -> throw new RuntimeException("Should never see this opcode.");
+                        }
+                );
+            }
+            case VexDot(VexVectorNode left, VexVectorNode right) -> {
+                compileVector(left, X);
+                compileVector(right, X);
+                pw.visit(MUL);
+                compileVector(left, Y);
+                compileVector(right, Y);
+                pw.visit(MUL);
+                pw.visit(ADD);
+            }
+            case VexNum(int value) -> {
+                pw.visit(LOADC, value);
+            }
+            case VexProj(VexProj.Axis projAxis, VexVectorNode vector) -> {
+                switch (projAxis) {
+                    case X -> {
+                        compileVector(vector, X);
+                    }
+                    case Y -> {
+                        compileVector(vector, Y);
+                    }
+                }
+            }
+            case VexSVar(String name) -> {
+                pw.visit(LOADA, variables.get(name));
+            }
+        }
+    }
+
+    public static void main(String[] args) throws IOException {
         VexVectorNode prog =
                 plus(
                         scale(
